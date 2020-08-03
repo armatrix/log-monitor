@@ -4,7 +4,7 @@ simple log monitor
 ### 项目背景
 
 我们通常会用nginx做一些web服务的代理，在ngixn的日志中，通常将其分为正确的访问日志和错误的日志。我们更希望的是将这些日志可视化。这里我们通过docker快速搭建开发环境，使用influxdb和grafana将数据进行存储、展示。这里很明显可以优化的地方是：我们将nginx的日志持久化存储了，又将该文件导入到influxdb中，在性能上我们更应该是将日志直接写入influxdb中。可以考虑下这里该如何做，是否要这样做，其代价和收益又是什么？
-同样的，将日志源从nginx换成其他的也类似。
+同样的，将日志源从nginx换成其他的也类似。可以用来做流量监控，接口api是不是稳定……有很多解决方案，这里用的是实时去读日志，提取并展现我们需要的信息。
 
 ### 涉及技术及工具
 
@@ -16,11 +16,9 @@ go、docker、influxdb、grafana、nginx
 
 第二部分简单介绍influxdb、grafana
 
-第三部分简单介绍nginx
+第三部分通过模拟日志源来实现我们的监控系统
 
-第四部分通过模拟日志源来实现我们的监控系统
-
-第五部分则是简单的将nginx的日志接入即可
+第四部分简单介绍nginx，将日志源修改
 
 ### 常见并发模型和go并发实现
 
@@ -168,11 +166,14 @@ docker run --name myinfluxdb -p 8086:8086 \
       -v $HOME/docker-volume/influxDB:/var/lib/influxdb \
       -d influxdb
 # 在容器内部执行 influx 并指定时间格式进入InfluxDB shell
+docker exec -it myinfluxdb bash
 influx -precision rfc3339
 # 查看当前数据库
 show databases;
 # 新建名为mydb的数据库
 create database mydb;
+# 可选 设置用户和密码 注意这里密码要用单引号
+create user "someuser" with password 'somepassword' with all privileges
 # 使用该数据库 
 use mydb;
 
@@ -195,4 +196,38 @@ DROP RETENTION POLICY "server" ON "mydb"
 ```
 
 更多样例请参照官方文档
+
+### 代码实现
+
+这里我们将功能需求列为：获取某个协议下的某个请求在某个请求方法的QPS、响应时间、流量。
+
+需要的数据字段为：
+
+```ini
+tags: path, method, scheme, status
+fields: upstream-time, request-time, bytes-sent
+time: loaltime
+```
+
+模块主要分为三部分：读取、解析、写入，模块之间通过channel进行连接
+
+#### 读取模块
+
+1. 打开文件
+2. 从文件末尾开始逐行读取最新内容
+3. 写入reader channel
+
+#### 解析模块
+
+1. 从reader channel中读取每行日志数据
+2. 通过正则提取所需监控数据（path、status、method etc.）
+3. 写入writer channel
+
+#### 写入模块
+
+1. 初始化influxdb client
+2. 从writer channel中读取监控数据
+3. 构造数据并写入influxDB
+
+
 
