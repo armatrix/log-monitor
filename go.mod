@@ -1,4 +1,4 @@
-module github.com/armatrix/log-monitor
+module github.com/armatrix/monitor
 
 go 1.14
 
