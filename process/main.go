@@ -46,9 +46,9 @@ type SystemInfo struct {
 
 const (
 	//TypeHandleLine 正确处理
-	TypeHandleLine = 0
+	TypeHandleLine = iota
 	//TypeErrNum 错误处理
-	TypeErrNum     = 1
+	TypeErrNum
 )
 
 //TypeMonitorChan 防止数据竞态
@@ -210,7 +210,7 @@ func (l *LogProcess) Process() {
 		//上面有13个括号，正常应该是匹配到13组数据，如果没有匹配到的错误处理  注意这里会得到14的长度，日志的本身是第零项
 		if len(ret) != 14 {
 			TypeMonitorChan <- TypeErrNum
-			log.Println("FindStringSubMatch failed:", string(v))
+			log.Println("findStringSubMatch failed:", string(v))
 			continue
 		}
 
@@ -219,7 +219,7 @@ func (l *LogProcess) Process() {
 		t, err := time.ParseInLocation(time.RFC3339, ret[4], loc)
 		if err != nil {
 			TypeMonitorChan <- TypeErrNum
-			log.Println("ParseInLocation failed: ", err.Error(), ret[4])
+			log.Println("parseInLocation failed: ", err, ret[4])
 		}
 		message.TimeLocal = t
 
